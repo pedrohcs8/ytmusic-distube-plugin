@@ -42,7 +42,7 @@
   },
   "homepage": "https://github.com/abiyyufahri/ytmusic-distube-plugin#readme",
   "dependencies": {
-    "@distube/ytdl-core": "latest",
+    "@distube/ytdl-core": "github:ToddyTheNoobDud/ytdl-core-stuff",
     "ytmusic-api": "^5.3.0"
   },
   "peerDependencies": {
