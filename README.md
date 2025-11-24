@@ -12,6 +12,8 @@
 npm install ytmusic-distube-plugin
 ```
 
+> **Note:** This plugin uses a fork of `@distube/ytdl-core` ([ytdl-core-stuff](https://github.com/ToddyTheNoobDud/ytdl-core-stuff)) for improved YouTube support. The dependency will be automatically installed from GitHub during installation.
+
 ## Usage
 
 ```js
@@ -96,7 +98,7 @@ This is an **unofficial** plugin for DisTube. It is not endorsed by or affiliate
 
 This plugin makes use of the following libraries:
 - [ytmusic-api](https://github.com/zS1L3NT/ts-npm-ytmusic-api) - API client for YouTube Music
-- [@distube/ytdl-core](https://github.com/distubejs/ytdl-core) - YouTube video and audio stream downloader
+- [ytdl-core-stuff](https://github.com/ToddyTheNoobDud/ytdl-core-stuff) - Fork of @distube/ytdl-core with enhanced YouTube support
 - [DisTube](https://distube.js.org/) - A Discord.js module to simplify your music commands
 
 ## License
