@@ -1,6 +1,6 @@
 {
   "name": "ytmusic-distube-plugin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Unofficial YouTube Music plugin for DisTube",
   "main": "src/index.js",
   "module": "src/index.mjs",
