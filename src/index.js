@@ -1,6 +1,7 @@
 const { DisTubeError, checkInvalidKey, ExtractorPlugin, Song, Playlist } = require("distube")
 const YTMusic = require("ytmusic-api")
 const ytdl = require("@distube/ytdl-core")
+const CookieManager = require("./cookieManager")
 
 /**
  * YouTube Music plugin for DisTube
@@ -15,15 +16,115 @@ class YouTubeMusicPlugin extends ExtractorPlugin {
       fetchBeforeQueued: false,
       parallel: true,
       maxViews: 10,
+      cookies: null,
+      cookiesPath: null,
+      agentOptions: {},
+      cookieRefresh: null,
       ...options,
     }
 
     checkInvalidKey(
       this.options,
-      ["emitEventsAfterFetching", "fetchBeforeQueued", "parallel", "maxViews"],
+      [
+        "emitEventsAfterFetching",
+        "fetchBeforeQueued",
+        "parallel",
+        "maxViews",
+        "cookies",
+        "cookiesPath",
+        "agentOptions",
+        "cookieRefresh",
+      ],
       "YouTubeMusicPlugin",
     )
     this.ytmusic = new YTMusic()
+    this.agent = null
+    this.cookieManager = null
+
+    // Initialize cookie manager if cookie refresh is enabled
+    if (this.options.cookieRefresh) {
+      this.initializeCookieManager()
+    }
+
+    // Initialize agent if cookies are provided
+    if (this.options.cookies || this.options.cookiesPath) {
+      this.initializeAgent()
+    }
+  }
+
+  /**
+   * Initialize cookie manager with auto-refresh
+   * @private
+   */
+  initializeCookieManager() {
+    try {
+      const cookieRefreshOptions = typeof this.options.cookieRefresh === 'object' 
+        ? this.options.cookieRefresh 
+        : {};
+      
+      this.cookieManager = new CookieManager({
+        cookiesPath: this.options.cookiesPath || cookieRefreshOptions.cookiesPath,
+        refreshInterval: cookieRefreshOptions.refreshInterval,
+        refreshBeforeExpiry: cookieRefreshOptions.refreshBeforeExpiry,
+        autoRefresh: cookieRefreshOptions.autoRefresh,
+        headless: cookieRefreshOptions.headless,
+        onCookiesUpdated: (cookies) => {
+          console.log('YouTubeMusicPlugin: Cookies updated, reinitializing agent...');
+          this.options.cookies = cookies;
+          this.initializeAgent();
+        },
+        onRefreshError: (error) => {
+          console.error('YouTubeMusicPlugin: Cookie refresh error:', error.message);
+        }
+      });
+      
+      console.log('YouTubeMusicPlugin: Cookie manager initialized');
+    } catch (error) {
+      console.error('YouTubeMusicPlugin: Failed to initialize cookie manager:', error.message);
+    }
+  }
+
+  /**
+   * Initialize ytdl agent with cookies
+   * @private
+   */
+  async initializeAgent() {
+    try {
+      let cookies = this.options.cookies;
+
+      // Load cookies from file if path is provided and cookies array is not
+      if (!cookies && this.options.cookiesPath) {
+        const fs = require('fs');
+        try {
+          const cookieData = fs.readFileSync(this.options.cookiesPath, 'utf8');
+          cookies = JSON.parse(cookieData);
+          console.log(`YouTubeMusicPlugin: Loaded ${cookies.length} cookies from ${this.options.cookiesPath}`);
+        } catch (error) {
+          console.error(`YouTubeMusicPlugin: Failed to load cookies from ${this.options.cookiesPath}:`, error.message);
+          return;
+        }
+      }
+
+      // Create agent with cookies
+      if (cookies && Array.isArray(cookies) && cookies.length > 0) {
+        this.agent = ytdl.createAgent(cookies, this.options.agentOptions);
+        console.log('YouTubeMusicPlugin: Cookie agent initialized successfully');
+        
+        // Validate cookies if cookie manager exists
+        if (this.cookieManager) {
+          const validation = this.cookieManager.validateCookies(cookies);
+          console.log(`YouTubeMusicPlugin: Cookie validation - ${validation.message}`);
+          
+          if (!validation.valid || validation.expiringSoon) {
+            console.warn('YouTubeMusicPlugin: Cookies may need refresh');
+          }
+        }
+      } else {
+        console.warn('YouTubeMusicPlugin: No valid cookies provided for agent initialization');
+      }
+    } catch (error) {
+      console.error('YouTubeMusicPlugin: Failed to create cookie agent:', error.message);
+    }
   }
 
   /**
@@ -33,13 +134,26 @@ class YouTubeMusicPlugin extends ExtractorPlugin {
    */
   async init(distube) {
     this.distube = distube
+    
+    // Merge plugin agent into DisTube's ytdlOptions
     this.distube.options.ytdlOptions = {
       ...this.distube.options.ytdlOptions,
+      ...(this.agent && { agent: this.agent }),
+    }
+    
+    // Log authentication status
+    if (this.agent) {
+      console.log("YouTubeMusicPlugin: Using authenticated agent with cookies");
     }
 
     try {
       await this.ytmusic.initialize({})
       console.log("YouTube Music API initialized successfully")
+      
+      // Start cookie auto-refresh if enabled
+      if (this.cookieManager && this.options.cookieRefresh) {
+        this.cookieManager.startAutoRefresh();
+      }
     } catch (error) {
       console.error("Failed to initialize YouTube Music API:", error)
       throw new DisTubeError("YTMUSIC_PLUGIN_ERROR", "Failed to initialize YouTube Music API")
@@ -546,6 +660,17 @@ class YouTubeMusicPlugin extends ExtractorPlugin {
     }
 
     return 0
+  }
+
+  /**
+   * Cleanup and stop cookie auto-refresh
+   * @returns {void}
+   */
+  destroy() {
+    if (this.cookieManager) {
+      this.cookieManager.destroy();
+      console.log('YouTubeMusicPlugin: Cookie manager stopped');
+    }
   }
 }
 

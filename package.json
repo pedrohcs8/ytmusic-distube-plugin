@@ -45,6 +45,9 @@
     "@distube/ytdl-core": "github:ToddyTheNoobDud/ytdl-core-stuff",
     "ytmusic-api": "^5.3.0"
   },
+  "optionalDependencies": {
+    "puppeteer": "^23.0.0"
+  },
   "peerDependencies": {
     "distube": "^5.0.7"
   }

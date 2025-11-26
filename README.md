@@ -37,8 +37,195 @@ new YouTubeMusicPlugin({
   parallel: true,
   // Maximum number of tracks to fetch from playlists, albums, and artists (Default: 10)
   maxViews: 10,
+  
+  // Cookie authentication (optional)
+  cookies: [...], // Array of cookies in EditThisCookie JSON format
+  cookiesPath: "./cookies.json", // Or path to cookies.json file
+  
+  // Agent options for ytdl-core (optional)
+  agentOptions: {
+    pipelining: 5,
+    maxRedirections: 0,
+    localAddress: undefined // Bind to specific IP address
+  },
+  
+  // Automatic cookie refresh with Puppeteer (optional)
+  cookieRefresh: {
+    refreshInterval: 86400000, // 24 hours in milliseconds
+    refreshBeforeExpiry: 3600000, // Refresh 1 hour before expiry
+    autoRefresh: true, // Enable automatic refresh
+    headless: true // Run Puppeteer in headless mode
+  }
 });
 ```
+
+## Cookie Authentication
+
+This plugin supports YouTube cookie authentication for accessing age-restricted content, private playlists, and preventing rate limiting. Cookies can be automatically refreshed using Puppeteer to maintain persistent authentication.
+
+### Getting Cookies
+
+1. **Install EditThisCookie** browser extension ([Chrome](https://chrome.google.com/webstore/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg) / [Firefox](https://addons.mozilla.org/en-US/firefox/addon/etc2/))
+2. Login to [YouTube Music](https://music.youtube.com)
+3. Click the EditThisCookie icon and export cookies
+4. Save as `cookies.json` in your project root
+
+### Using Cookies (Option 1: Direct Array)
+
+```js
+const fs = require('fs');
+const cookies = JSON.parse(fs.readFileSync('./cookies.json', 'utf8'));
+
+const distube = new DisTube({
+  plugins: [
+    new YouTubeMusicPlugin({
+      cookies: cookies
+    })
+  ]
+});
+```
+
+### Using Cookies (Option 2: File Path)
+
+```js
+const distube = new DisTube({
+  plugins: [
+    new YouTubeMusicPlugin({
+      cookiesPath: './cookies.json'
+    })
+  ]
+});
+```
+
+### Automatic Cookie Refresh with Puppeteer
+
+Keep your cookies fresh automatically without manual intervention:
+
+```js
+const distube = new DisTube({
+  plugins: [
+    new YouTubeMusicPlugin({
+      cookiesPath: './cookies.json',
+      cookieRefresh: {
+        refreshInterval: 86400000, // Refresh every 24 hours
+        refreshBeforeExpiry: 3600000, // Or when cookies expire in 1 hour
+        autoRefresh: true, // Enable auto-refresh
+        headless: false // Set to false for first-time login (shows browser)
+      }
+    })
+  ]
+});
+```
+
+**First Time Setup:**
+- Set `headless: false` to see the browser window
+- The plugin will open YouTube Music
+- Login manually if needed
+- Cookies are automatically captured and saved
+- Future refreshes can use `headless: true`
+
+**How It Works:**
+- Puppeteer opens YouTube Music with existing cookies
+- If cookies are expired or expiring soon, you can login manually
+- Fresh cookies are automatically saved to `cookies.json`
+- Agent is automatically reinitialized with new cookies
+- Process repeats based on `refreshInterval`
+
+### Cookie Refresh Options
+
+```js
+cookieRefresh: {
+  // Path to save/load cookies (inherits from cookiesPath if not specified)
+  cookiesPath: './cookies.json',
+  
+  // How often to check and refresh cookies (default: 24 hours)
+  refreshInterval: 86400000,
+  
+  // Refresh cookies this many ms before they expire (default: 1 hour)
+  refreshBeforeExpiry: 3600000,
+  
+  // Enable automatic refresh (default: true)
+  autoRefresh: true,
+  
+  // Run Puppeteer in headless mode (default: true)
+  // Set to false for first-time setup or when manual login is needed
+  headless: true
+}
+```
+
+### Manual Cookie Refresh
+
+You can also manually trigger a cookie refresh:
+
+```js
+const plugin = new YouTubeMusicPlugin({
+  cookiesPath: './cookies.json',
+  cookieRefresh: { autoRefresh: false } // Disable auto-refresh
+});
+
+// Later, manually refresh
+if (plugin.cookieManager) {
+  await plugin.cookieManager.refreshCookies();
+}
+```
+
+### Cookie Security Best Practices
+
+⚠️ **IMPORTANT:** Cookies contain sensitive authentication data!
+
+1. **Never commit cookies to version control:**
+   ```gitignore
+   # .gitignore
+   cookies.json
+   ```
+
+2. **Use environment-specific cookie files:**
+   ```js
+   cookiesPath: process.env.COOKIE_PATH || './cookies.json'
+   ```
+
+3. **Keep 1 IP address per account** to prevent cookie invalidation
+
+4. **Set appropriate file permissions:**
+   ```bash
+   chmod 600 cookies.json
+   ```
+
+5. **Rotate cookies periodically** using the auto-refresh feature
+
+### Cookie Format
+
+Cookies must be in **EditThisCookie JSON format**:
+
+```json
+[
+  {
+    "domain": ".youtube.com",
+    "expirationDate": 1735689600,
+    "hostOnly": false,
+    "httpOnly": true,
+    "name": "VISITOR_INFO1_LIVE",
+    "path": "/",
+    "sameSite": "no_restriction",
+    "secure": true,
+    "session": false,
+    "value": "your_cookie_value_here"
+  }
+]
+```
+
+### Troubleshooting Cookies
+
+**Cookies not working?**
+- Ensure cookies are in EditThisCookie JSON format
+- Check that cookies haven't expired (`expirationDate` is in the future)
+- Verify cookies are from `music.youtube.com` or `.youtube.com` domain
+- Try refreshing cookies with `headless: false` to login manually
+
+**Puppeteer errors?**
+- Install Puppeteer: `npm install puppeteer`
+- On Linux, install dependencies: `sudo apt-get install -y libgbm1 libasound2`
+- Try running with `headless: 'new'` instead of `true`
 
 ## Supported URLs
 

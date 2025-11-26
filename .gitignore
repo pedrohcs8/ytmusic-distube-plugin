@@ -24,6 +24,9 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 
+# Cookie files (sensitive authentication data)
+cookies.json
+
 # Build directories
 dist/
 out/
